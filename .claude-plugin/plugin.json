@@ -1,6 +1,6 @@
 {
   "name": "vibe-app-skill",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Skills to build and customise full-stack CRUD apps: Go (Gin, GORM, Postgres), React (Vite, shadcn/ui, TanStack Query), auth, RBAC + ReBAC, Taskfile workflow, Render deploys.",
   "author": { "name": "viswanathanb", "url": "https://github.com/viswanathanb" },
   "homepage": "https://github.com/viswanathanb/vibe-app-skill",

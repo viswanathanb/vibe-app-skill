@@ -11,7 +11,7 @@ report pre-existing failures explicitly instead of ignoring them.
 ## One command
 
 ```bash
-task check     # lint -> test -> build -> osv -> deps:review
+task check     # lint -> test -> build -> e2e -> osv -> deps:review
 ```
 
 Or step by step:
@@ -26,6 +26,7 @@ Or step by step:
 | Types | `bun run typecheck` | pass |
 | Frontend tests | `bun run test` | pass |
 | Builds | `task build` | both succeed |
+| Browser tests | `task e2e` | pass (see `crud-e2e-playwright`); required when UI, routes or permissions changed |
 | Vulnerabilities | `task osv` | no new findings |
 | Dependencies | `task deps:review` | only intended changes |
 

@@ -31,6 +31,8 @@ cp "$A/Taskfile.yml" "$A/docker-compose.yml" "$APP_DIR/"
 cp "$A/env.example" "$APP_DIR/.env.example"
 [[ -e "$APP_DIR/.gitignore" ]] || cp "$A/gitignore" "$APP_DIR/.gitignore"
 [[ -e "$APP_DIR/AGENTS.md" ]] || sed "s/{{APP_NAME}}/$APP_NAME/g" "$A/AGENTS.md" >"$APP_DIR/AGENTS.md"
+# Claude Code reads CLAUDE.md, other agents read AGENTS.md; keep one source of truth.
+[[ -e "$APP_DIR/CLAUDE.md" ]] || printf '@AGENTS.md\n' >"$APP_DIR/CLAUDE.md"
 [[ -e "$APP_DIR/APP_SPEC.md" ]] || sed "s/{{APP_NAME}}/$APP_NAME/g" "$A/APP_SPEC.md" >"$APP_DIR/APP_SPEC.md"
 cp "$D/Dockerfile" "$APP_DIR/"
 cp "$D/dockerignore" "$APP_DIR/.dockerignore"
@@ -41,6 +43,7 @@ sed -i.bak "s/^  APP: app #/  APP: $SLUG #/" "$APP_DIR/Taskfile.yml" && rm "$APP
 GO_MINOR="$(cd "$APP_DIR/backend" && go list -m -f '{{.GoVersion}}')"
 sed -i.bak -E "s#golang:[0-9.]+-alpine#golang:$GO_MINOR-alpine#" "$APP_DIR/Dockerfile" && rm "$APP_DIR/Dockerfile.bak"
 "$SKILLS/crud-frontend-react/scripts/create-frontend.sh" "$APP_DIR" "$APP_NAME"
+"$SKILLS/crud-e2e-playwright/scripts/add-e2e.sh" "$APP_DIR"
 
 [[ -e "$APP_DIR/.env" ]] || cp "$APP_DIR/.env.example" "$APP_DIR/.env"
 if [[ ! -d "$APP_DIR/.git" ]]; then

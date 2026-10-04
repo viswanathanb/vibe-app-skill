@@ -2,6 +2,26 @@
 
 CRUD web app generated from the `crud-*` skills. Read this before changing code.
 
+## Use the skills (mandatory)
+
+This app is maintained with the `crud-*` agent skills (installed from github.com/viswanathanb/vibe-app-skill).
+Before starting any task below, **load the matching skill and follow it**; don't hand-write what a skill script
+generates. Say which skill you are using at the start of your answer. If the skills are not available, stop and ask
+the user to install them instead of improvising.
+
+| Task | Skill |
+| --- | --- |
+| Add a new entity / table / page / CRUD screen | `crud-resource` (run its `add-resource.sh`) |
+| Permissions, roles, sharing, teams, "who can see/edit" | `crud-authz` |
+| Login, signup, users admin, sessions, SSO/OIDC | `crud-auth` |
+| Backend structure, config, middleware, errors, pagination | `crud-backend-go` |
+| Pages, forms, tables, UI components, data fetching | `crud-frontend-react` |
+| Docker, `render.yaml`, deploying | `crud-deploy-render` |
+| Browser/e2e tests, Playwright, `task e2e` failures | `crud-e2e-playwright` |
+| Before reporting **any** code change as done | `crud-quality-gates` |
+
+Skill names may carry a plugin prefix (e.g. `/vibe-app-skill:crud-resource`).
+
 ## Architecture
 
 - **Backend**: Go + Gin (`backend/`, port 8080), GORM + PostgreSQL, AutoMigrate on startup (no migration files).
@@ -51,7 +71,8 @@ frontend/src/
 | `task setup` | create `.env`, install deps |
 | `task dev` | Postgres + API (air) + Vite |
 | `task lint` / `task test` / `task build` | quality gates |
-| `task check` | lint + test + build + osv-scanner + dependency review |
+| `task e2e` / `task e2e:ui` / `task e2e:report` | Playwright browser tests on a fresh `app_e2e` database |
+| `task check` | lint + test + build + e2e + osv-scanner + dependency review |
 | `task db:psql` / `task db:reset` | local database |
 | `task docker:build` / `task docker:run` | production image locally |
 | `task deploy` | trigger a Render deploy |
@@ -59,7 +80,7 @@ frontend/src/
 ## After every change
 
 1. `task lint` (gofmt, go vet, golangci-lint, prettier, eslint zero warnings, tsc).
-2. `task test` and `task build`.
+2. `task test` and `task build`; `task e2e` when UI, routes or permissions changed (update `frontend/e2e/<resource>.spec.ts` with new required fields).
 3. Dependency review: `task deps:review`; if the change needed no new dependencies, manifests and lockfiles must be unchanged. No downgrades.
 4. `task osv`. Report new findings; don't add ignores without asking.
 5. Fix failures your change introduced; call out pre-existing ones explicitly.

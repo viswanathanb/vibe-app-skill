@@ -18,6 +18,7 @@ This is the **entry point**; it delegates to the other `crud-*` skills.
 | `crud-resource` | adding one CRUD resource end-to-end (golden example: `project`) |
 | `crud-frontend-react` | React app shell, API client, routing, UI conventions |
 | `crud-deploy-render` | Dockerfile, `render.yaml`, deploying with Task |
+| `crud-e2e-playwright` | Playwright browser tests (`task e2e`) |
 | `crud-quality-gates` | lint, tests, dependency review, osv-scanner |
 
 ## When to use
@@ -66,7 +67,7 @@ Result:
 
 ```
 <app>/
-  AGENTS.md  APP_SPEC.md  Taskfile.yml  docker-compose.yml  Dockerfile  render.yaml  .env.example  .gitignore
+  AGENTS.md  CLAUDE.md  APP_SPEC.md  Taskfile.yml  docker-compose.yml  Dockerfile  render.yaml  .env.example  .gitignore
   backend/   Go API: auth, users, RBAC + ReBAC (authz), teams
   frontend/  React SPA: login/signup, teams + members, admin users
 ```

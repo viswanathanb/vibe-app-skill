@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Full end-to-end check of the skills exactly as an agent would use them:
-# new-app.sh -> add-resource.sh (single + multi-word) -> lint, tests, builds, osv-scanner -> Docker image build.
+# new-app.sh -> add-resource.sh (single + multi-word) -> lint, tests, builds, Playwright, osv-scanner -> Docker build.
 # Usage: scripts/e2e.sh [workdir]
 set -euo pipefail
 
@@ -25,6 +25,13 @@ echo "==> task test"
 task test >"$WORK/test.log" 2>&1 || { tail -40 "$WORK/test.log"; exit 1; }
 echo "==> task build"
 task build >"$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log"; exit 1; }
+echo "==> task e2e (Playwright)"
+DBP=$((20000 + RANDOM % 10000))
+perl -pi -e "s/^DB_PORT=.*/DB_PORT=$DBP/; s/localhost:5432/localhost:$DBP/" .env
+export E2E_PORT=$((30000 + RANDOM % 10000))
+trap 'docker compose down -v >/dev/null 2>&1 || true' EXIT
+task e2e >"$WORK/e2e.log" 2>&1 || { tail -60 "$WORK/e2e.log"; exit 1; }
+grep -E '[0-9]+ passed' "$WORK/e2e.log" || true
 echo "==> osv-scanner"
 if ! osv-scanner scan source --no-call-analysis=go -r . >"$WORK/osv.log" 2>&1; then
   echo "WARN: osv-scanner reported findings (not fatal here; review them):"

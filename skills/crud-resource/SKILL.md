@@ -60,6 +60,8 @@ If the script can't be used (e.g. not an app from these skills), do the same ste
 - `<Plural>Page.tsx`: table columns, search placeholder, filters, default `sort`.
 - `<Name>DetailPage.tsx`: fields shown; keep the `permissions`-based buttons (Share/Edit/Delete).
 - Fix any labels the script couldn't humanise.
+- `frontend/e2e/<kebab-plural>.spec.ts` (generated when the app has Playwright): fill every new required input in
+  the create step so `task e2e` keeps passing. See `crud-e2e-playwright`.
 
 ### 4. Access pattern adjustments
 
@@ -73,7 +75,7 @@ If the script can't be used (e.g. not an app from these skills), do the same ste
 ### 5. Verify
 
 ```bash
-task lint && task test && task build
+task lint && task test && task build && task e2e
 task dev   # then in the browser, with two accounts:
 ```
 

@@ -33,13 +33,47 @@ ucfirst() { echo "$(echo "${1:0:1}" | tr '[:lower:]' '[:upper:]')${1:1}"; }
 HUMAN_LABEL="$(ucfirst "$HUMAN_LOWER")"                        # Machine config
 HUMAN_PLURAL_LABEL="$(ucfirst "$HUMAN_PLURAL_LOWER")"          # Machine configs
 MODULE="$(cd "$BE" && go list -m)"
+export PASCAL PASCAL_PLURAL PKG SNAKE KEBAB KEBAB_PLURAL CAMEL HUMAN_PLURAL_LOWER MODULE HUMAN_LOWER HUMAN_LABEL HUMAN_PLURAL_LABEL
+
+# Rewrites the `project` template identifiers/labels in a frontend file (TS/TSX, e2e spec).
+render_fe() {
+  perl -pi -e '
+    s#"project:create"#"$ENV{SNAKE}:create"#g;
+    s#"project"#"$ENV{SNAKE}"#g;
+    s#/projects#/$ENV{KEBAB_PLURAL}#g;
+    s#"Projects"#"$ENV{HUMAN_PLURAL_LABEL}"#g;
+    s#Projects you own#$ENV{HUMAN_PLURAL_LABEL} you own#g;
+    s#Project (created|updated|deleted)#$ENV{HUMAN_LABEL} $1#g;
+    s#(Edit|New) project#$1 $ENV{HUMAN_LOWER}#g;
+    s#Projects#$ENV{PASCAL_PLURAL}#g;
+    s#Project#$ENV{PASCAL}#g;
+    s#projects#$ENV{HUMAN_PLURAL_LOWER}#g;
+    s#project-#$ENV{KEBAB}-#g;
+    s#backend/internal/project/#backend/internal/$ENV{PKG}/#g;
+    s#project#$ENV{CAMEL}#g;
+  ' "$1"
+}
+
+# Browser test for the resource, only when the app has Playwright (crud-e2e-playwright).
+write_e2e_spec() {
+  [[ -d "$FE/e2e" ]] || return 0
+  local dest="$FE/e2e/$KEBAB_PLURAL.spec.ts"
+  if [[ -e "$dest" ]]; then echo "skip: $dest exists"; return 0; fi
+  cp "$SKILL/assets/frontend/e2e/projects.spec.ts" "$dest"
+  render_fe "$dest"
+  echo "==> frontend/e2e/$KEBAB_PLURAL.spec.ts"
+}
+
+if [[ "${E2E_ONLY:-}" == 1 ]]; then
+  write_e2e_spec
+  exit 0
+fi
 
 [[ ! -e "$BE/internal/$PKG" ]] || { echo "error: backend/internal/$PKG already exists" >&2; exit 1; }
 [[ ! -e "$FE/src/features/$KEBAB_PLURAL" ]] || { echo "error: frontend/src/features/$KEBAB_PLURAL exists" >&2; exit 1; }
 
 echo "==> backend/internal/$PKG"
 cp -R "$SKILL/assets/backend/internal/project" "$BE/internal/$PKG"
-export PASCAL PASCAL_PLURAL PKG SNAKE KEBAB KEBAB_PLURAL CAMEL HUMAN_PLURAL_LOWER MODULE HUMAN_LOWER HUMAN_LABEL HUMAN_PLURAL_LABEL
 for f in "$BE/internal/$PKG"/*.go; do
   perl -pi -e '
     s#"example\.com/app/#"$ENV{MODULE}/#g;
@@ -60,22 +94,9 @@ cp "$src/ProjectsPage.tsx" "$FE/src/features/$KEBAB_PLURAL/${PASCAL_PLURAL}Page.
 cp "$src/ProjectDetailPage.tsx" "$FE/src/features/$KEBAB_PLURAL/${PASCAL}DetailPage.tsx"
 cp "$src/ProjectFormDialog.tsx" "$FE/src/features/$KEBAB_PLURAL/${PASCAL}FormDialog.tsx"
 for f in "$FE/src/features/$KEBAB_PLURAL"/*; do
-  perl -pi -e '
-    s#"project:create"#"$ENV{SNAKE}:create"#g;
-    s#"project"#"$ENV{SNAKE}"#g;
-    s#/projects#/$ENV{KEBAB_PLURAL}#g;
-    s#"Projects"#"$ENV{HUMAN_PLURAL_LABEL}"#g;
-    s#Projects you own#$ENV{HUMAN_PLURAL_LABEL} you own#g;
-    s#Project (created|updated|deleted)#$ENV{HUMAN_LABEL} $1#g;
-    s#(Edit|New) project#$1 $ENV{HUMAN_LOWER}#g;
-    s#Projects#$ENV{PASCAL_PLURAL}#g;
-    s#Project#$ENV{PASCAL}#g;
-    s#projects#$ENV{HUMAN_PLURAL_LOWER}#g;
-    s#project-#$ENV{KEBAB}-#g;
-    s#backend/internal/project/#backend/internal/$ENV{PKG}/#g;
-    s#project#$ENV{CAMEL}#g;
-  ' "$f"
+  render_fe "$f"
 done
+write_e2e_spec
 
 echo "==> wiring markers"
 perl -0pi -e '
@@ -97,7 +118,7 @@ perl -0pi -e 's#(\s*\{/\* crud:home)#\n        <Link to="/$ENV{KEBAB_PLURAL}">\n
 
 echo "==> formatting + verifying"
 (cd "$BE" && gofmt -w internal && go build ./... && go vet ./...)
-(cd "$FE" && bunx prettier --write src >/dev/null && bun run typecheck && bun run lint)
+(cd "$FE" && bunx prettier --write src $([[ -d e2e ]] && echo e2e) >/dev/null && bun run typecheck && bun run lint)
 
 cat <<EOF
 
@@ -106,5 +127,6 @@ Added $PASCAL ($SNAKE). Now customise:
   backend/internal/$PKG/repository.go   sortColumns, search columns, filters
   backend/internal/$PKG/service.go      copy new fields in Create/Update; business rules
   frontend/src/features/$KEBAB_PLURAL/  types in api.ts, zod schema + inputs, table columns, detail fields, labels
+  frontend/e2e/$KEBAB_PLURAL.spec.ts     fill the new required fields in the create/edit steps (if present)
 Access pattern: owned + shareable. For child/catalog see crud-authz/references/patterns.md.
 EOF

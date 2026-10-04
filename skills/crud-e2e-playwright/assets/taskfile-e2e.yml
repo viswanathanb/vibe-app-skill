@@ -1,0 +1,28 @@
+  # ---------- browser tests (Playwright) ----------
+  e2e:
+    desc: "Playwright tests on a fresh app_e2e database (Go serves the built SPA on :8090). Args: task e2e -- --headed"
+    deps: [db:up]
+    cmds:
+      - docker compose exec -T db dropdb -U app --if-exists --force app_e2e
+      - docker compose exec -T db createdb -U app app_e2e
+      - cd frontend && bun run build
+      - cd frontend && bunx playwright test {{.CLI_ARGS}}
+
+  e2e:ui:
+    desc: Playwright UI mode (watch, time-travel debugging)
+    cmds:
+      - task: e2e
+        vars: { CLI_ARGS: --ui }
+
+  e2e:report:
+    desc: Open the last Playwright HTML report (traces + screenshots of failures)
+    dir: frontend
+    cmds:
+      - bunx playwright show-report
+
+  e2e:install:
+    desc: Download the Chromium build Playwright uses (once per machine / Playwright upgrade)
+    dir: frontend
+    cmds:
+      - bunx playwright install chromium
+
