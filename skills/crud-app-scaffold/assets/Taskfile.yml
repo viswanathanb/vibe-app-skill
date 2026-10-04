@@ -1,0 +1,179 @@
+version: "3"
+
+# Every developer and CI action goes through this file. Run `task` to list tasks.
+dotenv: [".env"]
+
+vars:
+  APP: app # used for the local Docker image name
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  # ---------- setup ----------
+  setup:
+    desc: Create .env and install backend + frontend dependencies
+    cmds:
+      - test -f .env || cp .env.example .env
+      - cd backend && go mod download
+      - cd frontend && bun install --frozen-lockfile
+
+  # ---------- local database ----------
+  db:up:
+    desc: Start local Postgres (Docker)
+    cmds:
+      - docker compose up -d --wait db
+
+  db:down:
+    desc: Stop local Postgres (keeps data)
+    cmds:
+      - docker compose down
+
+  db:reset:
+    desc: Delete ALL local data and start an empty Postgres
+    prompt: This deletes the local database volume. Continue?
+    cmds:
+      - docker compose down -v
+      - task: db:up
+
+  db:psql:
+    desc: Open psql on the local database
+    interactive: true
+    cmds:
+      - docker compose exec db psql -U app -d app
+
+  # ---------- development ----------
+  dev:
+    desc: Run Postgres, the Go API (air hot reload, :8080) and Vite (:5173)
+    deps: [db:up]
+    cmds:
+      - task: dev:servers
+
+  dev:servers:
+    internal: true
+    deps: [backend:dev, frontend:dev]
+
+  backend:dev:
+    desc: Run the Go API with hot reload (air)
+    dir: backend
+    cmds:
+      - air
+
+  frontend:dev:
+    desc: Run the Vite dev server (proxies /api to :8080)
+    dir: frontend
+    cmds:
+      - bun run dev
+
+  # ---------- build & test ----------
+  build:
+    desc: Build backend binary and frontend bundle
+    cmds:
+      - task: backend:build
+      - task: frontend:build
+
+  backend:build:
+    dir: backend
+    cmds:
+      - go build -o bin/server ./cmd/server
+
+  frontend:build:
+    dir: frontend
+    cmds:
+      - bun run build
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: backend:test
+      - task: frontend:test
+
+  backend:test:
+    dir: backend
+    cmds:
+      - go test ./...
+
+  frontend:test:
+    dir: frontend
+    cmds:
+      - bun run test
+
+  # ---------- quality gates (run after every change) ----------
+  lint:
+    desc: Format checks + linters for backend and frontend
+    cmds:
+      - task: backend:lint
+      - task: frontend:lint
+
+  backend:lint:
+    dir: backend
+    cmds:
+      - test -z "$(gofmt -l .)" || (gofmt -l . && echo "run gofmt -w on the files above" && exit 1)
+      - go vet ./...
+      - golangci-lint run ./...
+
+  frontend:lint:
+    dir: frontend
+    cmds:
+      - bun run format:check
+      - bun run lint
+      - bun run typecheck
+
+  fmt:
+    desc: Format Go and frontend code
+    cmds:
+      - cd backend && gofmt -w .
+      - cd frontend && bun run format
+
+  osv:
+    desc: Scan dependencies for known vulnerabilities
+    cmds:
+      # Go call analysis is skipped: it can crash on newer Go toolchains and only reduces findings.
+      - osv-scanner scan source --no-call-analysis=go -r .
+
+  deps:review:
+    desc: Show dependency manifest/lockfile changes vs origin/main
+    cmds:
+      - git fetch -q origin main || true
+      - git diff --stat origin/main -- '**/package.json' '**/bun.lock' '**/go.mod' '**/go.sum' || true
+
+  check:
+    desc: Everything CI runs - lint, test, build, osv, dependency review
+    cmds:
+      - task: lint
+      - task: test
+      - task: build
+      - task: osv
+      - task: deps:review
+
+  # ---------- containers & deploy ----------
+  docker:build:
+    desc: Build the production image (same Dockerfile Render uses)
+    cmds:
+      - docker build -t {{.APP}}:local .
+
+  docker:run:
+    desc: Run the production image against the local database on :8080
+    deps: [db:up]
+    cmds:
+      - >-
+        docker run --rm -p 8080:10000 --add-host=host.docker.internal:host-gateway
+        -e DATABASE_URL="postgres://app:app@host.docker.internal:${DB_PORT:-5432}/app?sslmode=disable"
+        -e JWT_SECRET="local-docker-secret-local-docker-secret"
+        -e APP_ENV=production -e ALLOW_SIGNUP=true
+        {{.APP}}:local
+
+  render:validate:
+    desc: Validate render.yaml (needs the Render CLI)
+    cmds:
+      - render blueprints validate render.yaml
+
+  deploy:
+    desc: Trigger a Render deploy and wait (needs RENDER_SERVICE_ID and `render login` or RENDER_API_KEY)
+    preconditions:
+      - sh: test -n "$RENDER_SERVICE_ID"
+        msg: Set RENDER_SERVICE_ID (srv-...) in .env or the environment
+    cmds:
+      - render deploys create "$RENDER_SERVICE_ID" --wait --confirm -o text

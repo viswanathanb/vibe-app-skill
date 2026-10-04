@@ -1,0 +1,72 @@
+version: "3"
+
+# Maintainer + consumer tasks for the crud-* skills.
+
+vars:
+  SKILLS:
+    sh: ls -d skills/*/ | xargs -n1 basename | xargs
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  list:
+    desc: List the skills in this repo
+    silent: true
+    cmds:
+      - for: { var: SKILLS, split: " " }
+        cmd: 'echo "{{.ITEM}}: $(sed -n "s/^description: *//p" skills/{{.ITEM}}/SKILL.md | cut -c2-110)…"'
+
+  install:
+    desc: "Copy skills from this checkout into a project: task install TARGET=../my-app [TOOLS=claude,github,agents]"
+    requires:
+      vars: [TARGET]
+    vars:
+      TOOLS: '{{.TOOLS | default "claude,github,agents"}}'
+    cmds:
+      - ./install.sh --from . --dir "{{.TARGET}}" --tools "{{.TOOLS}}"
+
+  install:user:
+    desc: "Install skills from this checkout for your user: ~/.claude/skills, ~/.copilot/skills, ~/.agents/skills"
+    cmds:
+      - ./install.sh --from . --global
+
+  uninstall:
+    desc: "Remove the crud-* skills from a project: task uninstall TARGET=../my-app"
+    requires:
+      vars: [TARGET]
+    prompt: Remove crud-* skills from {{.TARGET}}/.claude, .github and .agents?
+    cmds:
+      - for: [claude, github, agents]
+        cmd: rm -rf {{.TARGET}}/.{{.ITEM}}/skills/crud-*
+
+  # ---------- validation ----------
+  check:skills:
+    desc: Static checks (frontmatter, names, links, script syntax)
+    cmds:
+      - scripts/check-skills.sh
+
+  validate:backend:
+    desc: Assemble the Go skeleton (+ examples, OIDC) in a temp module; gofmt, vet, build, test, golangci-lint
+    cmds:
+      - scripts/validate-backend.sh
+
+  smoke:
+    desc: API smoke test against Postgres in Docker (auth, RBAC, ReBAC, sharing, teams)
+    cmds:
+      - scripts/smoke-backend.sh
+
+  e2e:
+    desc: Generate a full app with the scripts, add 2 resources, run lint/test/build/osv/docker
+    cmds:
+      - scripts/e2e.sh
+
+  check:
+    desc: Everything (run before committing changes to the skills)
+    cmds:
+      - task: check:skills
+      - task: validate:backend
+      - task: smoke
+      - task: e2e

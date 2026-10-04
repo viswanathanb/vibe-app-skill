@@ -1,0 +1,13 @@
+{
+  "name": "vibe-app-skill",
+  "description": "CRUD app skills: Go + React + Postgres with auth, RBAC/ReBAC and Render deploys",
+  "owner": { "name": "viswanathanb", "url": "https://github.com/viswanathanb" },
+  "plugins": [
+    {
+      "name": "vibe-app-skill",
+      "source": "./",
+      "description": "Build and customise full-stack CRUD apps (Go, Gin, GORM, Postgres, React, shadcn/ui) with auth, RBAC + ReBAC, Taskfile and Render deploys.",
+      "version": "0.1.0"
+    }
+  ]
+}
